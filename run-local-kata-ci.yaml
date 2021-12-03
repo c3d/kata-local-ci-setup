@@ -60,17 +60,21 @@
     file:
       path: '{{ guest_kata_log_file }}'
       state: absent
-  - name: Kill eventual remaining jenkins_job.sh
-    command: killall jenkins_job_build.sh
-    ignore_errors: yes
+  - name: Initial Kata CI setup
+    shell: .ci/setup.sh > '{{ guest_kata_install_file }}'
+    args:
+       chdir: /home/kata/go/src/github.com/kata-containers/tests
+       creates: '{{ guest_kata_install_file }}'
+  - name: Copy install log file locally
+    fetch:
+      src: '{{ guest_kata_install_file }}'
+      dest: '{{ host_kata_install_dir  }}'
   - name: Run Kata CI job
     environment:
-      BAREMETAL: true
-      WORKSPACE: "/home/kata"
       CI_JOB: "{{ ci_job }}"
-    shell: ./jenkins_job_build.sh github.com/kata-containers/kata-containers &> '{{ guest_kata_log_file }}'
+    shell: .ci/run.sh &> '{{ guest_kata_log_file }}'
     args:
-      chdir: /home/kata/go/src/github.com/kata-containers/tests/.ci
+      chdir: /home/kata/go/src/github.com/kata-containers/tests
       creates: '{{ guest_kata_log_file }}'
       executable: /bin/bash
     async: 1000

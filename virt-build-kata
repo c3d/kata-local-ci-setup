@@ -93,6 +93,7 @@ SSH_KEY_FILE=$key
 SSH_KEY=$(cat $SSH_KEY_FILE)
 set -ex
 
+
 virt-builder $distro -o $disk --format qcow2 --size=$size \
 	--root-password password:kata \
 	"${distro_commands[@]}" \
@@ -106,6 +107,7 @@ virt-builder $distro -o $disk --format qcow2 --size=$size \
 	--firstboot-command 'mkdir -p /home/kata/.ssh' \
 	--firstboot-command "echo $SSH_KEY > /home/kata/.ssh/authorized_keys"  \
 	--firstboot-command 'chown kata:kata -R /home/kata' \
+	--firstboot-command 'chown kata:kata -R /home/kata' \
         "${final_firstboot_cmd[@]}" \
 	--password  'kata:password:kata' \
 	--hostname kata-$distro
@@ -117,3 +119,15 @@ fi
 virt-install --import --name kata-$d  --memory $memory --vcpus $cpus \
         --disk path=$disk,format=qcow2 \
         --os-variant=$osvariant --noautoconsole $opts
+
+echo "Waiting for guest to get an IP address"
+while ! virsh domifaddr kata-$d | grep vnet ; do sleep 1; done
+
+IPADDR=$(virsh domifaddr kata-$d | grep vnet | sed -e 's|^\s*vnet[0-9]*.*ipv4\s*\([0-9.]*\)/[0-9]*|\1|g')
+echo "Guest IP address is $IPADDR"
+
+cat > hosts.yaml <<EOF
+all:
+  hosts:
+    $IPADDR
+EOF
